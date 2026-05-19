@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arrow Spine Calculator — Hive Archery</title>
+<meta name="description" content="Calculate the right arrow spine for your compound or recurve bow. Accounts for draw weight, draw length, arrow length, point weight, and IBO speed.">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<!-- GA4: G-FMMGEHVXNV -->
+<style>
+:root { --bg: #f4f0ea; --ink: #1f1610; --soft: #4a3f30; --accent: #8a4a2a; --warm: #5a7a3a; --rule: #d8d0c2; --card: #fff; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 16px; }
+body { font-family: Georgia, serif; background: var(--bg); color: var(--ink); line-height: 1.5; }
+header { padding: 1.25rem; max-width: 760px; margin: 0 auto; border-bottom: 1px solid var(--rule); }
+.brand-back { color: var(--soft); text-decoration: none; font-size: 0.9rem; }
+main { max-width: 760px; margin: 0 auto; padding: 2rem 1.25rem 4rem; }
+h1 { font-size: 1.7rem; margin-bottom: 0.5rem; }
+.sub { color: var(--soft); margin-bottom: 2rem; }
+.panel { background: var(--card); border: 1px solid var(--rule); border-radius: 4px; padding: 1.5rem; margin-bottom: 1.5rem; }
+.field-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.85rem; margin-bottom: 1rem; }
+.field label { display: block; font-size: 0.85rem; color: var(--soft); margin-bottom: 0.3rem; font-weight: 600; }
+.field input, .field select { width: 100%; padding: 0.65rem 0.75rem; border: 1px solid var(--rule); border-radius: 4px; font-size: 1rem; font-family: inherit; background: var(--bg); }
+button.go { background: var(--accent); color: #fff; border: none; padding: 0.85rem 1.5rem; font-size: 1rem; font-weight: 700; border-radius: 4px; cursor: pointer; margin-top: 0.5rem; }
+.results { background: #fff; border-left: 3px solid var(--warm); padding: 1.5rem; border-radius: 4px; margin-top: 1.5rem; display: none; }
+.results.visible { display: block; }
+.spine-result { font-size: 2rem; font-weight: 700; color: var(--accent); text-align: center; padding: 0.5rem 0; }
+.spine-range { text-align: center; color: var(--soft); margin-bottom: 1rem; }
+.note { background: #fcf3e8; padding: 1rem 1.25rem; border-radius: 4px; margin-top: 1.25rem; color: var(--soft); font-size: 0.9rem; }
+.note strong { color: var(--ink); }
+.affiliate { background: #fff; border: 1px solid var(--rule); padding: 1.25rem; border-radius: 4px; margin-top: 1.5rem; }
+.affiliate a { color: var(--accent); font-weight: 700; }
+.affiliate .disc { font-size: 0.85rem; color: var(--soft); margin-top: 0.6rem; }
+footer { max-width: 760px; margin: 3rem auto 2rem; padding: 1.5rem 1.25rem 0; border-top: 1px solid var(--rule); font-size: 0.9rem; color: var(--soft); text-align: center; }
+</style>
+</head>
+<body>
+
+<header>
+  <a href="/" class="brand-back">← Hive Archery</a>
+</header>
+
+<main>
+
+<h1>Arrow Spine Calculator</h1>
+<p class="sub">Find the right spine for your bow setup. Based on standard manufacturer spine charts (Easton, Gold Tip, Black Eagle) with adjustments for point weight and arrow length.</p>
+
+<div class="panel">
+
+  <div class="field-grid">
+    <div class="field">
+      <label>Bow type</label>
+      <select id="bow_type">
+        <option value="compound" selected>Compound</option>
+        <option value="recurve">Recurve / Traditional</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Draw weight (lbs)</label>
+      <input type="number" id="draw_weight" value="60" min="20" max="90">
+    </div>
+    <div class="field">
+      <label>Draw length (inches)</label>
+      <input type="number" id="draw_length" value="28" min="22" max="34" step="0.25">
+    </div>
+    <div class="field">
+      <label>Arrow length (inches, throat to tip)</label>
+      <input type="number" id="arrow_length" value="28.5" min="22" max="34" step="0.25">
+    </div>
+    <div class="field">
+      <label>Point weight (grains)</label>
+      <select id="point_weight">
+        <option value="75">75 gr</option>
+        <option value="85">85 gr</option>
+        <option value="100" selected>100 gr</option>
+        <option value="125">125 gr</option>
+        <option value="150">150 gr</option>
+        <option value="175">175 gr</option>
+        <option value="200">200 gr</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>IBO speed of bow (fps)</label>
+      <input type="number" id="ibo" value="330" min="200" max="370">
+    </div>
+  </div>
+
+  <button class="go" onclick="calcSpine()">Calculate arrow spine</button>
+
+  <div class="results" id="results"></div>
+
+</div>
+
+</main>
+
+<footer>
+  <p>Part of <a href="https://thehivemakes.com" style="color: var(--soft);">the Hive</a>. Made in Wilmington, Delaware.</p>
+</footer>
+
+<script>
+// Spine calculation based on Easton Shaft Selector + standard manufacturer charts
+// Logic:
+// 1. Base spine from compound/recurve table by draw weight and arrow length
+// 2. Adjust for point weight (heavier point = stiffer spine needed = lower number)
+// 3. Adjust for IBO speed (faster bow = stiffer spine needed)
+
+function calcSpine() {
+  const bow_type = document.getElementById("bow_type").value;
+  const draw_weight = parseFloat(document.getElementById("draw_weight").value);
+  const draw_length = parseFloat(document.getElementById("draw_length").value);
+  const arrow_length = parseFloat(document.getElementById("arrow_length").value);
+  const point_weight = parseFloat(document.getElementById("point_weight").value);
+  const ibo = parseFloat(document.getElementById("ibo").value);
+
+  // Effective draw weight: adjust for non-standard draw length
+  // Each 1" below 30" reduces stored energy ~10%, but for spine calc we use the actual peak weight
+  // and adjust via arrow length and point weight
+
+  // Base spine table (compound, 100gr point, 28" arrow, 330 IBO)
+  // Returns spine number (lower = stiffer)
+  function baseSpine(weight) {
+    if (weight <= 25) return 1000;
+    if (weight <= 30) return 900;
+    if (weight <= 35) return 800;
+    if (weight <= 40) return 700;
+    if (weight <= 45) return 600;
+    if (weight <= 50) return 500;
+    if (weight <= 55) return 450;
+    if (weight <= 60) return 400;
+    if (weight <= 65) return 380;
+    if (weight <= 70) return 340;
+    if (weight <= 75) return 320;
+    if (weight <= 80) return 300;
+    return 280;
+  }
+
+  let spine = baseSpine(draw_weight);
+
+  // Recurve: typically need slightly weaker (higher number) spine than compound at same draw weight
+  // Because recurve has lower peak energy retention
+  if (bow_type === "recurve") {
+    spine = Math.round(spine * 1.12);
+  }
+
+  // Adjust for arrow length (longer arrow = weaker = need stiffer = lower number)
+  // Rule of thumb: each 1" longer than 28" needs ~5% stiffer spine
+  const length_factor = (arrow_length - 28) * -0.05;
+  spine = Math.round(spine * (1 + length_factor));
+
+  // Adjust for point weight (heavier point = need stiffer spine = lower number)
+  // Rule of thumb: each 25 gr over 100 gr needs ~5% stiffer spine
+  const point_factor = ((point_weight - 100) / 25) * -0.05;
+  spine = Math.round(spine * (1 + point_factor));
+
+  // Adjust for IBO speed (faster bow = need stiffer = lower number)
+  // Each 10 fps above 330 needs ~3% stiffer spine
+  if (bow_type === "compound") {
+    const ibo_factor = ((ibo - 330) / 10) * -0.03;
+    spine = Math.round(spine * (1 + ibo_factor));
+  }
+
+  // Round to nearest standard spine (300, 340, 400, 500, 600, etc.)
+  const standard_spines = [250, 280, 300, 340, 380, 400, 450, 500, 550, 600, 700, 800, 900, 1000];
+  const closest = standard_spines.reduce((prev, curr) => Math.abs(curr - spine) < Math.abs(prev - spine) ? curr : prev);
+
+  // Determine acceptable range (±50 either side)
+  const range_low = standard_spines[Math.max(0, standard_spines.indexOf(closest) - 1)];
+  const range_high = standard_spines[Math.min(standard_spines.length - 1, standard_spines.indexOf(closest) + 1)];
+
+  document.getElementById("results").innerHTML = `
+    <h3 style="text-align: center; color: var(--accent); margin-bottom: 0.5rem;">Recommended spine</h3>
+    <div class="spine-result">${closest}</div>
+    <div class="spine-range">Acceptable range: ${range_high} (weaker) to ${range_low} (stiffer)</div>
+    <div class="note">
+      <strong>How to read this:</strong> Spine numbers are inverse — lower number means stiffer arrow. If you're between two standard spines, go stiffer (lower) rather than weaker. Tune via point weight (heavier point weakens the arrow's effective spine, lighter stiffens it). Bare-shaft tuning will tell you whether your final selection is right; the chart gets you within 2-3 spine values.
+    </div>
+    <div class="affiliate">
+      <strong>Arrow shafts in this spine range:</strong><br>
+      <a href="https://www.ebay.com/sch/i.html?_nkw=easton+axis+arrows+${closest}&campid=5339144864" rel="sponsored" target="_blank">Easton Axis ${closest} spine on eBay</a><br>
+      <a href="https://www.ebay.com/sch/i.html?_nkw=gold+tip+hunter+${closest}&campid=5339144864" rel="sponsored" target="_blank">Gold Tip Hunter ${closest} spine on eBay</a><br>
+      <a href="https://www.ebay.com/sch/i.html?_nkw=black+eagle+x+impact+${closest}&campid=5339144864" rel="sponsored" target="_blank">Black Eagle X-Impact ${closest} spine on eBay</a>
+      <div class="disc">eBay Partner Network affiliate links. Small commission, doesn't change your price. Verify spine selection with bare-shaft tuning after purchase — that's the only way to confirm fit.</div>
+    </div>
+  `;
+  document.getElementById("results").classList.add("visible");
+}
+</script>
+
+</body>
+</html>
